@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GPS</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+  <style>
+    body {
+      background-color: #1a1a1a;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 10px;
+    }
+
+    h1 {
+      font-size: 20px;
+    }
+
+    #map {
+      height: 400px;
+      width: 100%;
+      border: 2px solid #ffffff;
+      margin-bottom: 10px;
+    }
+
+    form {
+      display: flex;
+      margin-bottom: 10px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 5px;
+      margin-right: 5px;
+      border: none;
+      background-color: #dcdcdc;
+      color: #000000;
+    }
+
+    button[type="submit"],
+    button[type="button"] {
+      background-color: #4d4d4d;
+      border: none;
+      color: #ffffff;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+
+    button[type="submit"]:hover,
+    button[type="button"]:hover {
+      background-color: #737373;
+    }
+
+    #location-info {
+      background-color: #4d4d4d;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    #location-info p {
+      margin: 5px 0;
+    }
+
+    #distance-info {
+      background-color: #4d4d4d;
+      padding: 10px;
+    }
+
+    #distance-info p {
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="location-info"></div>
+  <div id="distance-info"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+  <script>
+    function initMap() {
+      const map = L.map('map').setView([0, 0], 8);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: ''
+      }).addTo(map);
+
+      const marker = L.marker([0, 0]).addTo(map);
+
+      function updateMarkerPosition(lat, lng) {
+        marker.setLatLng([lat, lng]);
+        map.setView([lat, lng]);
+      }
+
+      function findSelfLocation() {
+        fetch('https://ipapi.co/json/')
+          .then(response => response.json())
+          .then(data => {
+            const { latitude, longitude, city, country_name } = data;
+            updateMarkerPosition(latitude, longitude);
+            displayLocationInfo(city, country_name);
+          })
+          .catch(error => {
+            console.error('Error fetching location data:', error);
+          });
+      }
+
+      function displayLocationInfo(city, country) {
+        const locationInfo = document.getElementById('location-info');
+        locationInfo.innerHTML = `
+          <p>Location: ${city}, ${country}</p>
+        `;
+      }
+
+      function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Radius of the earth in km
+        const dLat = deg2rad(lat2 - lat1);
+        const dLon = deg2rad(lon2 - lon1);
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c; // Distance in km
+        return distance.toFixed(2);
+      }
+
+      function deg2rad(deg) {
+        return deg * (Math.PI / 180);
+      }
+
+      const form = document.createElement("form");
+      const latInput = document.createElement("input");
+      const lngInput = document.createElement("input");
+      const submitButton = document.createElement("button");
+      const selfLocationButton = document.createElement("button");
+
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        const lat = parseFloat(latInput.value);
+        const lng = parseFloat(lngInput.value);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          updateMarkerPosition(lat, lng);
+          displayLocationInfo("Custom Location", "");
+        }
+      });
+
+      latInput.type = "text";
+      latInput.placeholder = "Latitude";
+      lngInput.type = "text";
+      lngInput.placeholder = "Longitude";
+      submitButton.type = "submit";
+      submitButton.textContent = "Go";
+
+      selfLocationButton.type = "button";
+      selfLocationButton.textContent = "Find My Location";
+      selfLocationButton.addEventListener("click", findSelfLocation);
+
+      form.appendChild(latInput);
+      form.appendChild(lngInput);
+      form.appendChild(submitButton);
+      document.body.appendChild(form);
+
+      document.body.appendChild(selfLocationButton);
+
+      map.on("click", function (e) {
+        const { lat, lng } = e.latlng;
+        updateMarkerPosition(lat, lng);
+        displayLocationInfo("Info Shown On Display", "");
+      });
+
+      function updateDistanceInfo(lat, lng) {
+        const locationInfo = document.getElementById("location-info");
+        if (locationInfo.innerHTML) {
+          const coords = locationInfo.innerHTML.match(/[-+]?[0-9]*\.?[0-9]+/g);
+          if (coords && coords.length === 2) {
+            const distance = calculateDistance(lat, lng, parseFloat(coords[0]), parseFloat(coords[1]));
+            const distanceInfo = document.getElementById("distance-info");
+            distanceInfo.innerHTML = `
+              <p>Distance from Clicked Location: ${distance} km</p>
+            `;
+          }
+        }
+      }
+
+      map.on("click", function (e) {
+        const { lat, lng } = e.latlng;
+        updateDistanceInfo(lat, lng);
+      });
+    }
+  </script>
+  <script>
+    // Initialize the map
+    window.onload = function () {
+      initMap();
+    };
+  </script>
+</body>
+</html>
